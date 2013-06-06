@@ -13,3 +13,11 @@ You have a grid of cells in 2 dimensions. Each cell has 2 possible states, alive
 * any live cell with 2 or 3 neighbors lives to next generation
 * any dead cell with exactly 3 live neighbors becomes a live cell
 * _edges of game: just pretend that the board is folded onto itself, and the edges touch each other. If that's too complicated, you can work without that assumption._
+
+## Languages
+
+1. Ruby
+2. C
+3. C++
+4. Javascript
+5. ...?
