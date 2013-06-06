@@ -3,19 +3,17 @@
 # Brian Anderson - brian@bitbyteyum.com
 # Game of Life
 
+# A nice way to print the state of the game....
 class PrettyPrintField
   def self.print(state)
     state.each do |row|
       puts row.inspect
     end
   end
-  
   def self.printAt(state,x,y)
     at_y = 0
-
     state.each do |column|
       at_x = 0  
-
       column.each do |element|
         if (at_y == y && at_x == x)
           Kernel::print("["+element.to_s+"]")
@@ -32,10 +30,32 @@ class PrettyPrintField
   end
 end
 
+
+# The GAME OF LIFE
+# ================================================================
+# Public interface...
+#
+# new(width, height, seed)
+# ------------------------
+#     Creates a new game of life object with optional parameters
+#       width & height  |  integers and optional
+#       seed            |  Seed for random number generator
+#
+# evolve
+# ------
+#     Steps the game board through one iteration following the rules
+#     Returns a game board height x width 2d integer array, 
+#       where 1 is alive, 0 is dead
+#
+# state=[][] (a 2d int array of height x width)
+# ----------
+#       Give it a board game a game board height x width 2d integer array, 
+#       where 1 is alive, 0 is dead
+#
 class GameOfLife
-  # Width is the width of the playing field
-  # Height is the height of the playing field
-  # Seed is an integer to give to the random number generator
+  # Width     the width of the playing field
+  # Height    the height of the playing field
+  # Seed      an integer to give to the random number generator
   def initialize(width=10,height=10,seed=rand(1000))
     @width = width
     @height = height
@@ -53,7 +73,6 @@ class GameOfLife
     @height.times do |y|
       new_field << []
       @width.times do |x|
-        new_field[y][x] = @field[y][x];
         
         neighbors_count = numberOfNeighborsFor(x,y)
 
@@ -62,12 +81,10 @@ class GameOfLife
         # any life cell > 3 neighbours dies
         if(neighbors_count < 2 || neighbors_count > 3)
           new_field[y][x] = 0
-          action =  "dies"
           
-        # -----------------------------------------------------------------        
+        # -----------------------------------------------------------------
         # any dead cell with exactly 3 live neighbours becomes a live cell
         elsif(neighbors_count == 3 && @field[y][x] == 0)
-          action = "birth"
           new_field[y][x] = 1
         
         # -----------------------------------------------------------------
@@ -75,13 +92,13 @@ class GameOfLife
         #   any live cell with 2 or 3 neighbours lives to next generation
         #   or the cell stays dead
         else
-          action = " no Change"
+          # Copy values to the field
+          new_field[y][x] = @field[y][x];
         end
-        # puts "(#{x},#{y}) - #{neighbors_count} -> #{action} from: #{@field[y][x]} -> #{new_field[y][x]}"        
       end
     end
     @field = new_field
-    return new_field
+    return @field
   end
   
   # A way to set the initial state of the game of life
@@ -93,9 +110,9 @@ class GameOfLife
   
   protected
   
+  # Neighbors include wrap around (Yay modulus operator)
   def numberOfNeighborsFor(x,y)
     neighbors = 0;
-    # PrettyPrintField.printAt(@field,x,y)
     [-1,0,1].each do |x_offset|
       [-1,0,1].each do |y_offset|
         if (!(x_offset == 0 && y_offset == 0))
@@ -106,21 +123,18 @@ class GameOfLife
     return neighbors
   end
   
+  # Build the game board
   def initializeFieldWithSeed(seed)
     @seed = seed
     @field = []
-    # generator = Random.new(seed)
     srand(seed) # the Ruby 1.8.7 way
     @height.times do |y|
       row = []
       @width.times do |x|
-        # row << generator.rand(0..1)
         row << rand(2) # ruby 1.8.7 way
       end
       @field << row
-    end
-    # PrettyPrintField.print(@field)
-    
+    end    
   end
 end
 
