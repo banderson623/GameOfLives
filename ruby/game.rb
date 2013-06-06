@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+
 # Brian Anderson - brian@bitbyteyum.com
 # Game of Life
 
@@ -49,23 +50,38 @@ class GameOfLife
   #   where there's no life (a dead cell), there's a 0.
   def evolve
     new_field = []
-      @height.times do |y|
-        @width.times do |x|  
-        # Check the neighbors of this
+    @height.times do |y|
+      new_field << []
+      @width.times do |x|
+        new_field[y][x] = @field[y][x];
+        
         neighbors_count = numberOfNeighborsFor(x,y)
-        action = "lives"
+
+        # -----------------------------------------------------------------
+        # any life cell < 2 neighbours dies
+        # any life cell > 3 neighbours dies
         if(neighbors_count < 2 || neighbors_count > 3)
-          @field[y][x] = 0 #dies
+          new_field[y][x] = 0
           action =  "dies"
-        elsif(neighbors_count == 3)
-          action = "birth" if  @field[y][x]==0
-          @field[y][x] = 1
+          
+        # -----------------------------------------------------------------        
+        # any dead cell with exactly 3 live neighbours becomes a live cell
+        elsif(neighbors_count == 3 && @field[y][x] == 0)
+          action = "birth"
+          new_field[y][x] = 1
+        
+        # -----------------------------------------------------------------
+        # There is no change:
+        #   any live cell with 2 or 3 neighbours lives to next generation
+        #   or the cell stays dead
+        else
+          action = " no Change"
         end
-        # puts "(#{x},#{y}) - #{neighbors_count} -> #{action}"        
+        # puts "(#{x},#{y}) - #{neighbors_count} -> #{action} from: #{@field[y][x]} -> #{new_field[y][x]}"        
       end
     end
-    
-    return @field
+    @field = new_field
+    return new_field
   end
   
   # A way to set the initial state of the game of life
@@ -103,17 +119,18 @@ class GameOfLife
       end
       @field << row
     end
-    PrettyPrintField.print(@field)
+    # PrettyPrintField.print(@field)
     
   end
 end
 
+# life = GameOfLife.new(10,10,2)
+# # life.state=[[0,0,0,0,0],
+# #             [0,1,1,0,0],
+# #             [0,0,0,0,0]]
+# game_state = [[1,0,0],[1,1,0],[0,0,0]]
+# life.state=game_state
+# PrettyPrintField.print(game_state)
+# puts '-'
+# PrettyPrintField.print(life.evolve)
 
-life = GameOfLife.new(10,10,2)
-# life.state=[[0,0,0,0,0],
-#             [0,1,1,0,0],
-#             [0,0,0,0,0]]
-5.times do 
-  puts "...generation..."
-  PrettyPrintField.print(life.evolve())
-end
