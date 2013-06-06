@@ -17,7 +17,7 @@ _edges of game: just pretend that the board is folded onto itself, and the edges
 
 ## Languages
 
-1. Ruby
+1. Ruby &#x2713;
 2. C
 3. C++
 4. Javascript
