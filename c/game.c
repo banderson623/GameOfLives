@@ -17,26 +17,6 @@ typedef struct {
   int** board;  
 } Board;
 
-int releaseBoard(Board board);
-void printBoard(Board board);
-Board generateBoard(int width, int height, int seed);
-
-int main (int argc, char const *argv[]){    
-    int height = DEFAULT_HEIGHT;
-    int width =  DEFAULT_WIDTH;
-    
-    // generate the board
-    Board board = generateBoard(width, height, 0);
-    
-    // print the current board
-    printBoard(board);
-    
-    // Now release the memory
-    releaseBoard(board);
-    
-    return OK;
-}
-
 
 // Release the board of height (rows)
 int releaseBoard(Board board){
@@ -84,4 +64,22 @@ Board generateBoard(int width, int height, int seed) {
     }
     
     return board;
+}
+
+
+
+int main (int argc, char const *argv[]){    
+    int height = DEFAULT_HEIGHT;
+    int width =  DEFAULT_WIDTH;
+    
+    // generate the board
+    Board board = generateBoard(width, height, 0);
+    
+    // print the current board
+    printBoard(board);
+    
+    // Now release the memory
+    releaseBoard(board);
+    
+    return OK;
 }
