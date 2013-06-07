@@ -45,6 +45,7 @@ Board generateBoard(int width, int height, int seed) {
     // seed the random number generator
     srand(seed);
     
+    //Set up the board
     Board board;
     board.width = width;
     board.height = height;
@@ -69,12 +70,31 @@ Board generateBoard(int width, int height, int seed) {
 int neighborCount(int column, int row, Board* board){
     int count = 0;
     
+    // Here we are going to deviate from how we did this in ruby.
+    // Because C's modulus operator is arguably more mathematically more correct
+    // see: http://stackoverflow.com/questions/7594508/modulo-operator-with-negative-values
+    // for how it behaves.
+    //
+    // For example if we have a board height of 3. 
+    //  When the row offset is calculating for -1 that would be above the current row.
+    //  and the current row is 0, then 0 + (-1) % 3 will return -1. Which obviously is
+    //  not a correct array index. (segfault!)
+    // 
+    //  what we wanted in this case was that it would be 2. So how do we do this?
+    //  Lets add total height to the row. This will always return a postive number
+    //  and it is the correct value. Because multiples of the height are ignored
+    //  by the modulus operator we can safely do this to get us positive, without
+    //  concern of altering the value returned.
+    //
+    //      example: (3 + 0 +(-1)) % 3 = 2 
+    // To cop
+    
     for(int row_offset = -1; row_offset <= 1; row_offset++){
         for(int column_offset = -1; column_offset <= 1; column_offset++){
-            printf("Checking row offset: %d and column offset: %d | for row: %d and column: %d\n", row_offset, column_offset, row, column);
+            // printf("Checking row offset: %d and column offset: %d | for row: %d and column: %d\n", row_offset, column_offset, row, column);
             if (!(row_offset == 0 && column_offset == 0)){
-                  count+= board->board[((row + row_offset) % board->height)]
-                                      [((column + column_offset) % board->width)];
+                  count+= board->board[((board->height + row + row_offset) % board->height)]
+                                      [((board->width + column + column_offset) % board->width)];
             }
         }
     }
