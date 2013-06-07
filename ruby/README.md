@@ -6,4 +6,8 @@ The plotting and test code was borrowed from [elisehuard](https://github.com/eli
 
 To see it in action, run:
 
-    ruby run.rb
+    ruby run.rb    
+
+This requires the ffi-ncurses ruby gem
+
+    gem install ffi ffi-ncurses
