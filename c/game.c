@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DEFAULT_WIDTH 50
-#define DEFAULT_HEIGHT 10
+#define DEFAULT_WIDTH 4
+#define DEFAULT_HEIGHT 4
 
 #define TRUE 1
 #define FALSE 0
@@ -66,7 +66,33 @@ Board generateBoard(int width, int height, int seed) {
     return board;
 }
 
+int neighborCount(int column, int row, Board* board){
+    int count = 0;
+    
+    for(int row_offset = -1; row_offset <= 1; row_offset++){
+        for(int column_offset = -1; column_offset <= 1; column_offset++){
+            printf("Checking row offset: %d and column offset: %d | for row: %d and column: %d\n", row_offset, column_offset, row, column);
+            if (!(row_offset == 0 && column_offset == 0)){
+                  count+= board->board[((row + row_offset) % board->height)]
+                                      [((column + column_offset) % board->width)];
+            }
+        }
+    }
+    
+    return count;
+}
 
+void evolve(Board* board){
+    
+    Board newBoard;
+    for(int row = 0; row < board->height ; ++row){
+        for(int column = 0; column < board->width; ++column){
+            printf("Neighbors of %2d,%2d : %d\n",row,column,
+                                                 neighborCount(column,row,board));
+        }
+    }
+    // releaseBoard(*board);
+}
 
 int main (int argc, char const *argv[]){    
     int height = DEFAULT_HEIGHT;
@@ -77,6 +103,8 @@ int main (int argc, char const *argv[]){
     
     // print the current board
     printBoard(board);
+    
+    evolve(&board);
     
     // Now release the memory
     releaseBoard(board);
