@@ -10,4 +10,9 @@ This is also my first time using a [SIGNAL handler](http://stackoverflow.com/que
 
     make run
     
+It will run in the size of your terminal. Optionally you can make and then call it with 1 argument which is an integer seed.
 
+    make
+    ./game <integer seed>
+
+Have fun!

@@ -4,9 +4,6 @@
 #include <curses.h>
 #include <unistd.h>
 
-// #define DEFAULT_WIDTH 100
-// #define DEFAULT_HEIGHT 30
-
 #define TRUE 1
 #define FALSE 0
 
@@ -49,6 +46,7 @@ void printBoard(Board* board){
     }
 }
 
+// Print with ncurses, lots of fun!
 void printWithCurses(Board* board){
     for(int row = 0; row < board->height ; ++row){
         for(int column = 0; column < board->width; ++column){
@@ -59,23 +57,9 @@ void printWithCurses(Board* board){
     
 }
 
-// Print the board and highlight a row and column
-void printBoardWithHighlight(Board* board, int rowToHighlight, int columnToHighlight){
-    for(int row = 0; row < board->height ; ++row){
-        printf("|");
-        for(int column = 0; column < board->width; ++column){
-            if(row == rowToHighlight && column == columnToHighlight){
-                printf("%s",(board->tiles[row][column] == 1) ? "[*]" : "[ ]");
-            } else {
-                printf(" %c ",(board->tiles[row][column] == 1) ? '*' : ' ');
-            }
-        }
-        printf("|\n");
-    }
-}
-
+// Returns a new board of height and width
+// no life will be present on it though...
 Board* allocateBoardTiles(int height, int width){
-
     // Create a new board
     Board* board = (Board*) malloc(sizeof(Board));
     board->height = height;
