@@ -1,14 +1,15 @@
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <curses.h>
+#include <unistd.h>
 
-#define DEFAULT_WIDTH 10
-#define DEFAULT_HEIGHT 10
+// #define DEFAULT_WIDTH 100
+// #define DEFAULT_HEIGHT 30
 
 #define TRUE 1
 #define FALSE 0
 
-#define OK 0
-#define FAIL 1
 
 // Nice way to keep the data together.
 typedef struct {
@@ -16,6 +17,12 @@ typedef struct {
   int width;
   int** tiles;  
 } Board;
+
+// Structure to hold the screen size coordinates
+typedef struct {
+  int height;
+  int width;
+} ScreenSize;
 
 
 // Release the board
@@ -28,16 +35,42 @@ int releaseBoard(Board* board){
     board->tiles = 0;
     board->width = 0;
     board->height = 0;
-    return OK;
+    return 0;
 }
 
 // Print the board
 void printBoard(Board* board){
     for(int row = 0; row < board->height ; ++row){
+        // printf("|");
         for(int column = 0; column < board->width; ++column){
-            printf(" %c",(board->tiles[row][column] == 1) ? '*' : ' ');
+            printf("|%c",(board->tiles[row][column] == 1) ? '*' : ' ');
         }
-        printf("\n");
+        printf("|\n");
+    }
+}
+
+void printWithCurses(Board* board){
+    for(int row = 0; row < board->height ; ++row){
+        for(int column = 0; column < board->width; ++column){
+            char ch = (board->tiles[row][column] == 1) ? '*' : ' ';
+            mvaddch(row,column,ch);
+        }
+    }
+    
+}
+
+// Print the board and highlight a row and column
+void printBoardWithHighlight(Board* board, int rowToHighlight, int columnToHighlight){
+    for(int row = 0; row < board->height ; ++row){
+        printf("|");
+        for(int column = 0; column < board->width; ++column){
+            if(row == rowToHighlight && column == columnToHighlight){
+                printf("%s",(board->tiles[row][column] == 1) ? "[*]" : "[ ]");
+            } else {
+                printf(" %c ",(board->tiles[row][column] == 1) ? '*' : ' ');
+            }
+        }
+        printf("|\n");
     }
 }
 
@@ -99,25 +132,17 @@ int neighborCount(int column, int row, Board* board){
     // concern of altering the value returned.
     //
     //     example: (3 + 0 +(-1)) % 3 = 2 
-    
-    // printf("Checking row: %d and column: %d\n", row, column);
-    
+        
     for(int row_offset = -1; row_offset <= 1; row_offset++){
         
         for(int column_offset = -1; column_offset <= 1; column_offset++){
-            // printf("Checking row offset: %d and column offset: %d | for row: %d and column: %d\n", row_offset, column_offset, row, column);
-            if (!(row_offset == 0 && 
-                  column_offset == 0)){
-                  int found = board->tiles[((board->height + row + row_offset) % board->height)]
+            if (!(row_offset == 0 && column_offset == 0)){
+                  count+= board->tiles[((board->height + row + row_offset) % board->height)]
                                   [((board->width + column + column_offset) % board->width)];
-                  if(found > 0){
-                      // printf("   found neighbor at offset r:%d,c:%d\n",row_offset,column_offset);
-                  }
-                  count+= found;
             }
         }
     }
-    
+
     return count;
 }
 
@@ -149,29 +174,65 @@ Board* evolve(Board* board){
     return newBoard;
 }
 
-int main (int argc, char const *argv[]){    
-    int height = DEFAULT_HEIGHT;
-    int width =  DEFAULT_WIDTH;
+// Used to get the screen size
+ScreenSize determineScreenSize(){
+    // Used to get the screen size
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     
-    Board* board = allocateBoardTiles(height,width);
+    ScreenSize window;
+    window.height = w.ws_row;
+    window.width = w.ws_col;
+    return window;
+}
+
+// To catch the control c signal
+int execute;
+
+// Small function that is called when SIGINT is received
+void trap(int signal){ 
+    execute = 0; 
+}
+
+int main (int argc, char const *argv[]){    
+    
+    int seed = 100;
+    if (argc > 1){
+        seed = atoi(argv[1]);
+    }
+    
+    ScreenSize size = determineScreenSize();
+    
+    // ncurses initialization
+    initscr();
+        
+    // Build the board
+    Board* board = allocateBoardTiles(size.height,size.width);
     
     // generate the board
-    generateLifeOn(board, 0);
+    generateLifeOn(board, seed);
+
+    // Counter for the generation
+    int generation = 0;
     
-    // print the current board
-    printBoard(board);
-    
-    for(int i = 0; i < 15; i++){
+    //set up the signal listening
+    signal(SIGINT, &trap);
+    execute = 1;
+    while(execute == 1){
         board = evolve(board);
-        printf("Generation: %d\n",i);
-        printBoard(board);
-        sleep(1);
+        printWithCurses(board);
+        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+        refresh();
+        usleep(1000*10);
     }
 
-
-    
-    // Now release the memory
+    // Now release the memory of the last board
     releaseBoard(board);
     
-    return OK;
+    signal(SIGINT, SIG_DFL);
+    
+    // Finally clean up after ncurses
+    endwin();
+    
+    return 0;
 }
