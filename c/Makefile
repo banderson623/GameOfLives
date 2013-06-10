@@ -1,17 +1,18 @@
 BINARY=game
 CC=cc
 
-game: game.c
-	$(CC) game.c -lncurses -o $(BINARY)
+all: game
 
-bmp.p : bmp.c
-	$(CC) bmp.c -c bmp.o
+game: bmp.o game.c
+	$(CC) bmp.o game.c -lncurses -o $(BINARY)
 
+bmp.o: bmp.c
+	$(CC) -c -Wall bmp.c
 
 run: game
 	./$(BINARY)
 
 clean: 
-	rm -f bmp.o
+	rm -f *.o
 	rm ./$(BINARY)
 	

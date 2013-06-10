@@ -54,14 +54,26 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
         size_t writeSize = fwrite(&header, sizeof(char), sizeof(BitmapHeader), outputHandle);
             if(writeSize > 1){
                 // Good to go!
-                ColoredPixel pixel; 
-                pixel.blue = 255;
-                pixel.red = 0;
-                pixel.green = 0;
-                pixel.alpha = 0;
+                ColoredPixel lifePixel; 
+                lifePixel.blue = 255;
+                lifePixel.red = 0;
+                lifePixel.green = 0;
+                lifePixel.alpha = 50;
+                
+                ColoredPixel deadPixel;
+                deadPixel.blue = deadPixel.red = deadPixel.green = deadPixel.alpha = 0;
+                
                 for(int row = 0; row < numberOfRows; row++){
                     for(int column = 0; column < numberOfColumns; column++){
-                        writeSize = fwrite((char*)&pixel, 1, sizeof(ColoredPixel),outputHandle);
+                        ColoredPixel pixelToWrite;
+                        
+                        if(gameTiles[row][column] == 0){
+                            pixelToWrite = deadPixel;
+                        } else {
+                            pixelToWrite = lifePixel;
+                        }
+                        
+                        writeSize = fwrite((char*)&pixelToWrite, 1, sizeof(ColoredPixel),outputHandle);
                     }
                 }
             }

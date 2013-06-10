@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <unistd.h>
+#include "bmp.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -188,27 +189,28 @@ int main (int argc, char const *argv[]){
     ScreenSize size = determineScreenSize();
     
     // ncurses initialization
-    initscr();
+    // initscr();
         
     // Build the board
     Board* board = allocateBoardTiles(size.height,size.width);
     
     // generate the board
     generateLifeOn(board, seed);
+    saveGameStateToFile(board->tiles, size.height, size.height, "tiles.bmp");
 
     // Counter for the generation
     int generation = 0;
     
     //set up the signal listening
-    signal(SIGINT, &trap);
-    execute = 1;
-    while(execute == 1){
-        board = evolve(board);
-        printWithCurses(board);
-        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
-        refresh();
-        usleep(1000*10);
-    }
+    // signal(SIGINT, &trap);
+//     execute = 1;
+//     while(execute == 1){
+//         board = evolve(board);
+//         printWithCurses(board);
+//         mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+//         refresh();
+//         usleep(1000*10);
+//     }
 
     // Now release the memory of the last board
     releaseBoard(board);
@@ -216,7 +218,7 @@ int main (int argc, char const *argv[]){
     signal(SIGINT, SIG_DFL);
     
     // Finally clean up after ncurses
-    endwin();
+    // endwin();
     
     return 0;
 }
