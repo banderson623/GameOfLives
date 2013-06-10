@@ -2,7 +2,7 @@ BINARY=game
 CC=cc
 
 game: game.c
-	$(CC) game.c -o $(BINARY)
+	$(CC) game.c -lncurses -o $(BINARY)
 
 bmp.p : bmp.c
 	$(CC) bmp.c -c bmp.o
