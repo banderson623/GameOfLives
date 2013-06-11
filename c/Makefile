@@ -15,4 +15,5 @@ run: game
 clean: 
 	rm -f *.o
 	rm ./$(BINARY)
+	rm -f images/*.bmp
 	

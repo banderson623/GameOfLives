@@ -14,7 +14,7 @@ void BMPPrintFileHeader(BMPFileHeader* header){
 
 
 int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, char* fileName) {
-    int colorDepth = 24;
+    const int colorDepth = 24;
     int result = 0;
  
     // typedef struct {
@@ -60,8 +60,8 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
     header.importantColors = 0;
     
     // printf("Bitmap File Header: %d\n", sizeof(BMPFileHeader));
-    BMPPrintFileHeader(&fileHeader);
-    printf("Header size: %ld\n", sizeof(BitmapHeader));
+    // BMPPrintFileHeader(&fileHeader);
+    // printf("Header size: %ld\n", sizeof(BitmapHeader));
 
     FILE* outputHandle = fopen(fileName, "wb");
     if(outputHandle != NULL){
@@ -71,15 +71,15 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
             if(writeSize > 1){
                 // Good to go!
                 ColoredPixel lifePixel; 
-                lifePixel.blue = 0;
-                lifePixel.red = 0;
-                lifePixel.green = 255;
+                lifePixel.blue = 255;
+                lifePixel.red = 155;
+                lifePixel.green = 155;
                 lifePixel.alpha = 0;
                 
                 ColoredPixel deadPixel;
                 deadPixel.blue = deadPixel.red = deadPixel.green = deadPixel.alpha = 0;
                 
-                for(int row = 0; row < numberOfRows; row++){
+                for(int row = numberOfRows - 1; row >= 0; row--){
                     for(int column = 0; column < numberOfColumns; column++){
                         ColoredPixel pixelToWrite;
                         

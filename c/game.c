@@ -91,8 +91,8 @@ void generateLifeOn(Board* board, int seed) {
     for(int row = 0; row < board->height ; ++row){
         for(int column = 0; column < board->width; ++column){
             // 1 is alive, 0 is dead
-            // board->tiles[row][column] = rand() % 2;
-            board->tiles[row][column] = 1;
+            board->tiles[row][column] = rand() % 2;
+            // board->tiles[row][column] = 1;
         }
     }
 }
@@ -189,32 +189,44 @@ int main (int argc, char const *argv[]){
     
     ScreenSize size = determineScreenSize();
     // hack
-    size.height = 100;
-    size.width =  100;
+    // size.height = size.width = 500;
     
     // ncurses initialization
-    // initscr();
+    initscr();
         
     // Build the board
     Board* board = allocateBoardTiles(size.height,size.width);
     
+    
     // generate the board
     generateLifeOn(board, seed);
-    saveGameStateToFile(board->tiles, size.height, size.width, "tiles.bmp");
-    printf("height: %d, width: %d\n",size.height, size.width);
+    
     // Counter for the generation
     int generation = 0;
     
-    //set up the signal listening
-    // signal(SIGINT, &trap);
-//     execute = 1;
-//     while(execute == 1){
-//         board = evolve(board);
-//         printWithCurses(board);
-//         mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
-//         refresh();
-//         usleep(1000*10);
-//     }
+    // set up the signal listening
+    signal(SIGINT, &trap);
+    execute = 1;
+    
+    // Does this need to be initialized?
+    char fileNameBuffer[200];
+    
+    while(execute == 1){
+        board = evolve(board);
+        // sprintf(fileNameBuffer, "images/generations_%03d.bmp",generation);
+        // saveGameStateToFile(board->tiles, size.height, size.width, fileNameBuffer);
+        // printBoard(board);
+        
+        // generation++;
+        // if(generation % 100 == 0){
+        //     printf("Generation: %d\n", generation);
+        // }
+        printWithCurses(board);
+        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+        refresh();
+        usleep(1000*20);
+        // sleep(1);
+    }
 
     // Now release the memory of the last board
     releaseBoard(board);
@@ -222,7 +234,7 @@ int main (int argc, char const *argv[]){
     signal(SIGINT, SIG_DFL);
     
     // Finally clean up after ncurses
-    // endwin();
+    endwin();
     
     return 0;
 }
