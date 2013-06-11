@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <unistd.h>
-#include "bmp.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -188,8 +187,6 @@ int main (int argc, char const *argv[]){
     }
     
     ScreenSize size = determineScreenSize();
-    // hack
-    // size.height = size.width = 500;
     
     // ncurses initialization
     initscr();
@@ -213,19 +210,12 @@ int main (int argc, char const *argv[]){
     
     while(execute == 1){
         board = evolve(board);
-        // sprintf(fileNameBuffer, "images/generations_%03d.bmp",generation);
-        // saveGameStateToFile(board->tiles, size.height, size.width, fileNameBuffer);
-        // printBoard(board);
-        
-        // generation++;
-        // if(generation % 100 == 0){
-        //     printf("Generation: %d\n", generation);
-        // }
+
         printWithCurses(board);
+
         mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
         refresh();
         usleep(1000*20);
-        // sleep(1);
     }
 
     // Now release the memory of the last board
