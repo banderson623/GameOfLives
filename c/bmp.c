@@ -1,6 +1,18 @@
 #include "bmp.h"
 #include <stdio.h>
 
+void BMPPrintFileHeader(BMPFileHeader* header){
+    printf("BMPFileHeader\n--------------------------\n");
+    printf("Size of BMPFileHeader: %ld (should be 14)\n",sizeof(BMPFileHeader));
+    printf("Type: %d (size: %ld)\n",header->type, sizeof(header->type));
+    printf("fileSize: %d (size: %ld)\n",header->fileSize, sizeof(header->fileSize));
+    printf("reserved1: %d (size: %ld)\n",header->reserved1, sizeof(header->reserved1));
+    printf("reserved2: %d (size: %ld)\n",header->reserved2, sizeof(header->reserved2));
+    printf("dataOffset: %d (size: %ld)\n",header->dataOffset, sizeof(header->dataOffset));
+    printf("--------------------\n");
+}
+
+
 int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, char* fileName) {
     int colorDepth = 24;
     int result = 0;
@@ -14,10 +26,10 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
     // } BMPFileHeader;
     
     BMPFileHeader fileHeader;
-    // fileHeader.type =  'B';
     fileHeader.type = 19778;
+    fileHeader.reserved1 = fileHeader.reserved2 = 0;
     fileHeader.fileSize = colorDepth * numberOfRows * numberOfColumns;
-    fileHeader.dataOffset = 54; // this could change...
+    fileHeader.dataOffset = sizeof(BitmapHeader); //= 54; // 54 this could change...
 
     // typedef struct {
     //     BMPFileHeader fileHeader;
@@ -35,7 +47,7 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
     // } BitmapHeader;
     BitmapHeader header;
     header.fileHeader = fileHeader;
-    header.headerSize = sizeof(BitmapHeader); // size of self...
+    header.headerSize = sizeof(BitmapHeader) - sizeof(BMPFileHeader); // size of self...
     header.width = numberOfColumns;
     header.height = numberOfRows;
     header.planes = 1;
@@ -46,6 +58,10 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
     header.verticalResolution = 1;
     header.numberOfColors = 0;
     header.importantColors = 0;
+    
+    // printf("Bitmap File Header: %d\n", sizeof(BMPFileHeader));
+    BMPPrintFileHeader(&fileHeader);
+    printf("Header size: %ld\n", sizeof(BitmapHeader));
 
     FILE* outputHandle = fopen(fileName, "wb");
     if(outputHandle != NULL){
@@ -55,10 +71,10 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
             if(writeSize > 1){
                 // Good to go!
                 ColoredPixel lifePixel; 
-                lifePixel.blue = 255;
+                lifePixel.blue = 0;
                 lifePixel.red = 0;
-                lifePixel.green = 0;
-                lifePixel.alpha = 50;
+                lifePixel.green = 255;
+                lifePixel.alpha = 0;
                 
                 ColoredPixel deadPixel;
                 deadPixel.blue = deadPixel.red = deadPixel.green = deadPixel.alpha = 0;
@@ -72,7 +88,7 @@ int saveGameStateToFile(int** gameTiles, int numberOfRows, int numberOfColumns, 
                         } else {
                             pixelToWrite = lifePixel;
                         }
-                        
+                                            // is this correct?
                         writeSize = fwrite((char*)&pixelToWrite, 1, sizeof(ColoredPixel),outputHandle);
                     }
                 }

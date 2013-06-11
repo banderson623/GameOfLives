@@ -91,7 +91,8 @@ void generateLifeOn(Board* board, int seed) {
     for(int row = 0; row < board->height ; ++row){
         for(int column = 0; column < board->width; ++column){
             // 1 is alive, 0 is dead
-            board->tiles[row][column] = rand() % 2;
+            // board->tiles[row][column] = rand() % 2;
+            board->tiles[row][column] = 1;
         }
     }
 }
@@ -187,6 +188,9 @@ int main (int argc, char const *argv[]){
     }
     
     ScreenSize size = determineScreenSize();
+    // hack
+    size.height = 100;
+    size.width =  100;
     
     // ncurses initialization
     // initscr();
@@ -196,8 +200,8 @@ int main (int argc, char const *argv[]){
     
     // generate the board
     generateLifeOn(board, seed);
-    saveGameStateToFile(board->tiles, size.height, size.height, "tiles.bmp");
-
+    saveGameStateToFile(board->tiles, size.height, size.width, "tiles.bmp");
+    printf("height: %d, width: %d\n",size.height, size.width);
     // Counter for the generation
     int generation = 0;
     
