@@ -8,12 +8,13 @@
 #include <errno.h>
 #include <string.h>
 
-#define EGYPTIAN_COTTON 10
+#define EGYPTIAN_COTTON 2
 #define THREAD_COUNT EGYPTIAN_COTTON
 // That was cute.
 
 #define TRUE 1
 #define FALSE 0
+
 
 
 // Nice way to keep the data together.
@@ -35,17 +36,30 @@ typedef struct {
 
 // This holds
 typedef struct {
-    Board* current;                 // pointer to the current board
-    Board* next;                    // this is the one to write too...
-    short running;                  // 0 for stop request, 1 for running
-    sem_t* lock;                    // semaphore for locking this structure
-    sem_t* evolutionDone;           // Used to signal when an evolution is done
-    sem_t* dataAvailable;           // Locked until data is available
-    int rowsRemainingToProcess;     // Number of rows (also their indices of 
-                                    // the rows remaining to process).
-    int rowsProcessed;              // Count of the rows processed
-    int totalRowCount;              // This is the total rows that should
-                                    // be Process in this evolution
+    Board* current;   // pointer to the current board
+    Board* next;      // this is the one to write too...
+    
+    // Main control switch: 0 for stop request, 1 for running
+    short running;
+    
+     // semaphore for locking this structure while reading/writing
+    sem_t* lock;                   
+    
+   // Used to signal when an evolution is done
+    sem_t* evolutionDone;
+    
+    // Locked until data is available
+    sem_t* dataAvailable;
+    
+    // Number of rows (also their indices of the rows remaining to process).
+    int rowsRemainingToProcess;     
+    
+    // Count of the rows processed
+    int rowsProcessed;            
+    
+    // This is the total rows that should be Process in this evolution
+    int totalRowCount;            
+    
 } ThreadControl;
 
 // -------- GLOBAL STATE -----------------------------------
@@ -158,8 +172,6 @@ Board* allocateBoardTiles(int height, int width){
 void generateLifeOn(Board* board, int seed) {
     // seed the random number generator
     srand(seed);
-    printf("generating life...\n");
-    
     for(int row = 0; row < board->height ; ++row){
         for(int column = 0; column < board->width; ++column){
             // 1 is alive, 0 is dead
@@ -167,7 +179,6 @@ void generateLifeOn(Board* board, int seed) {
             // board->tiles[row][column] = 1;
         }
     }
-    printf("done generating life...\n");
 }
 
 int neighborCount(int column, int row, Board* board){
@@ -228,7 +239,6 @@ void* evolveRowWorker(void* threadId){
             }
             markRowDone(row);
         }
-        printf(".");
     }
     printf("Exiting thread %ld ...\n", myId);
     pthread_exit(NULL);
@@ -247,7 +257,10 @@ Board* evolve(Board* board){
     state->rowsProcessed = 0;
     state->rowsRemainingToProcess = board->height;
     state->totalRowCount = board->height;
+    printf("posting dataAvailable\n");
     sem_post(state->dataAvailable);
+    printf("post lock\n");
+    
     sem_post(state->lock);
     
     
@@ -276,6 +289,8 @@ void trap(int signal){
     execute = 0;
     // ask the threads to shut down
     state->running = 0;
+    // Make sure we aren't blocked here
+    sem_post(state->dataAvailable);
 }
 
 int main (int argc, char const *argv[]){    
@@ -286,7 +301,7 @@ int main (int argc, char const *argv[]){
     }
     
     ScreenSize size = determineScreenSize();
-    size.width = size.height = 1000;
+    size.width = size.height = 4;
         
     // ncurses initialization
     // initscr();
