@@ -4,7 +4,7 @@ CC=cc
 all: game
 
 game: game.c
-	$(CC) game.c -lncurses -o $(BINARY)
+	$(CC) game.c -lncurses -lpthread -o $(BINARY)
 
 run: game
 	./$(BINARY)

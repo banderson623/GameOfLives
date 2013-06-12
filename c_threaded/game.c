@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <unistd.h>
+#include <pthread.h>
+
+#define EGYPTIAN_COTTON 5
+#define THREAD_COUNT EGYPTIAN_COTTON
+// That was cute.
 
 #define TRUE 1
 #define FALSE 0
@@ -21,6 +26,46 @@ typedef struct {
   int width;
 } ScreenSize;
 
+
+// The rules of the game go here
+int liveOrDie(int numberOfNeighbors, int currentState){
+    // die is 0
+    // live is 1
+    int futureState = currentState;
+    
+    if(numberOfNeighbors < 2 || numberOfNeighbors > 3){
+        // Unable to live without neighbors, but not too many ;)
+        futureState = 0;
+    } else if (numberOfNeighbors == 3 && currentState == 0){
+        // any dead cell with exactly 3 live neighbours becomes a live cell
+        futureState = 1;
+    }
+    
+    return futureState;
+}
+
+// This will take the current board, examine the row passed in
+// and then add that row to the nextGeneration board.
+// Both boards should be initialized and allocated 
+// row should be within the bounds of board
+void* evolveRow(int row_begin, int row_end, Board* currentBoard, Board* nextGeneration){
+    // Verify this is valid
+    if(currentBoard != NULL && 
+       nextGeneration != NULL && 
+       row_begin <= currentBoard->height && 
+       row_end <= currentBoard->height
+    ){
+        // Works on a set of rows
+        for(int row = row_begin; row < row_end; row++){
+            for(int cell = 0; cell < currentBoard->width; cell++){
+                int neighbors = neighborCount(cell, row, currentBoard);
+                int futureState = liveOrDie(neighborCount,currentBoard[row][cell]);
+                nextGeneration[row][cell] = futureState;
+            }
+        }
+    }
+    pthread_exit(NULL);
+}
 
 // Release the board
 int releaseBoard(Board* board){
@@ -135,25 +180,28 @@ Board* evolve(Board* board){
     
     // Build the 2d array
     Board* newBoard = allocateBoardTiles(board->height, board->width);
-        
+    pthread_t threads[THREAD_COUNT];    
+    
+    
     for(int row = 0; row < board->height ; ++row){
-        for(int column = 0; column < board->width; ++column){
-            int numberOfNeighbors = neighborCount(column,row,board);
-            // printf("neighbors: %d, ",numberOfNeighbors);
-            if(numberOfNeighbors < 2 || numberOfNeighbors > 3){
-                // Unable to live without neighbors, but not too many ;)
-                newBoard->tiles[row][column] = 0;
-            } else if (numberOfNeighbors == 3 && board->tiles[row][column] == 0){
-                // any dead cell with exactly 3 live neighbours becomes a live cell
-                newBoard->tiles[row][column] = 1;
-            } else {
-                // There is no change:
-                //   any live cell with 2 or 3 neighbours lives to next generation
-                //   or the cell stays dead
-                // printf(".");
-                newBoard->tiles[row][column] = board->tiles[row][column];
-            }
-        }
+        
+        // for(int column = 0; column < board->width; ++column){
+        //     int numberOfNeighbors = neighborCount(column,row,board);
+        //     // printf("neighbors: %d, ",numberOfNeighbors);
+        //     if(numberOfNeighbors < 2 || numberOfNeighbors > 3){
+        //         // Unable to live without neighbors, but not too many ;)
+        //         newBoard->tiles[row][column] = 0;
+        //     } else if (numberOfNeighbors == 3 && board->tiles[row][column] == 0){
+        //         // any dead cell with exactly 3 live neighbours becomes a live cell
+        //         newBoard->tiles[row][column] = 1;
+        //     } else {
+        //         // There is no change:
+        //         //   any live cell with 2 or 3 neighbours lives to next generation
+        //         //   or the cell stays dead
+        //         // printf(".");
+        //         newBoard->tiles[row][column] = board->tiles[row][column];
+        //     }
+        // }
     }
     releaseBoard(board);
     return newBoard;
