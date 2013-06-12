@@ -8,8 +8,7 @@
 // http://stackoverflow.com/questions/232785/use-of-pragma-in-c
 // This will ensure that a structure is packed tightly (i.e. no padding between members)
 
-
-// And then to get from BMP to animated gif using image magick
+// And then to get from .BMP to animated gif using image magick
 // http://apple.stackexchange.com/a/30564
 
 #pragma pack(push, 1)

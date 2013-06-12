@@ -4,6 +4,7 @@
 #include <curses.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define EGYPTIAN_COTTON 5
 #define THREAD_COUNT EGYPTIAN_COTTON
@@ -26,45 +27,64 @@ typedef struct {
   int width;
 } ScreenSize;
 
+// This holds
+typedef struct {
+    Board* current;                 // pointer to the current board
+    Board* next;                    // this is the one to write too...
+    short running;                  // 0 for stop request, 1 for running
+    sem_t* lock;                    // semaphore for locking this structure
+    sem_t* evolutionDone;           // Used to signal when an evolution is done
+    int rowsRemainingToProcess;     // Number of rows (also their indices of 
+                                    // the rows remaining to process).
 
-// The rules of the game go here
+    int rowsProcessed;              // Count of the rows processed
+    int totalRowCount;              // 
+} ThreadControl;
+
+// -------- GLOBAL STATE -----------------------------------
+// Set up the thread control structure
+// sorry it is global
+ThreadControl* state;
+
+// To catch the control c signal
+int execute;
+// ---------------------------------------------------------
+
+// The rules of the game go here,
+// in fact this could be a function pointer and
+// then we could swap in different rule engines...
 int liveOrDie(int numberOfNeighbors, int currentState){
-    // die is 0
-    // live is 1
+    // die is 0 and live is 1
     int futureState = currentState;
     
     if(numberOfNeighbors < 2 || numberOfNeighbors > 3){
-        // Unable to live without neighbors, but not too many ;)
+    // Unable to live without neighbors, but not too many ;)
         futureState = 0;
+    
     } else if (numberOfNeighbors == 3 && currentState == 0){
-        // any dead cell with exactly 3 live neighbours becomes a live cell
+    // any dead cell with exactly 3 live neighbours becomes a live cell
         futureState = 1;
     }
-    
     return futureState;
 }
 
-// This will take the current board, examine the row passed in
-// and then add that row to the nextGeneration board.
-// Both boards should be initialized and allocated 
-// row should be within the bounds of board
-void* evolveRow(int row_begin, int row_end, Board* currentBoard, Board* nextGeneration){
-    // Verify this is valid
-    if(currentBoard != NULL && 
-       nextGeneration != NULL && 
-       row_begin <= currentBoard->height && 
-       row_end <= currentBoard->height
-    ){
-        // Works on a set of rows
-        for(int row = row_begin; row < row_end; row++){
-            for(int cell = 0; cell < currentBoard->width; cell++){
-                int neighbors = neighborCount(cell, row, currentBoard);
-                int futureState = liveOrDie(neighborCount,currentBoard[row][cell]);
-                nextGeneration[row][cell] = futureState;
-            }
-        }
+// NOT THREAD SAFE
+int getNextRow(){
+    int returnValue = -1;
+    if(state->rowsRemainingToProcess >= 0){
+        returnValue = state->rowsRemainingToProcess;
+        state->rowsRemainingToProcess--;
     }
-    pthread_exit(NULL);
+    return returnValue;
+}
+
+void markRowDone(int row){
+    sem_wait(state->lock);          // Lock the state
+    state->rowsProcessed++;
+    if(state->rowsProcessed >= state->totalRowCount){
+        sem_post(state->evolutionDone);
+    }
+    sem_post(state->lock);      // Release the lock on the state          
 }
 
 // Release the board
@@ -80,22 +100,12 @@ int releaseBoard(Board* board){
     return 0;
 }
 
-// Print the board
-void printBoard(Board* board){
-    for(int row = 0; row < board->height ; ++row){
-        // printf("|");
-        for(int column = 0; column < board->width; ++column){
-            printf("|%c",(board->tiles[row][column] == 1) ? '*' : ' ');
-        }
-        printf("|\n");
-    }
-}
-
 // Print with ncurses, lots of fun!
 void printWithCurses(Board* board){
     for(int row = 0; row < board->height ; ++row){
         for(int column = 0; column < board->width; ++column){
             char ch = (board->tiles[row][column] == 1) ? '*' : ' ';
+            // print a character at the row and column
             mvaddch(row,column,ch);
         }
     }
@@ -142,9 +152,8 @@ void generateLifeOn(Board* board, int seed) {
 }
 
 int neighborCount(int column, int row, Board* board){
-
     int count = 0;
-    
+    printf("Neighbor count row: %d, col: %d\n",row,column);
     // Here we are going to deviate from how we did this in Ruby.
     // Because C's modulus operator is, arguably, mathematically more correct
     // see: http://stackoverflow.com/questions/7594508/modulo-operator-with-negative-values
@@ -176,33 +185,56 @@ int neighborCount(int column, int row, Board* board){
     return count;
 }
 
-Board* evolve(Board* board){
+// This will take the current board, examine the row passed in
+// and then add that row to the nextGeneration board.
+// Both boards should be initialized and allocated 
+void* evolveRowWorker(void* threadId){
+    long myId = (long)threadId;
     
+    while(state->running){
+        sem_wait(state->lock);          // Lock the state
+        int canProcess = state->current != NULL && state->next != NULL;
+        int row = getNextRow() - 1;
+        sem_post(state->lock);      // Release the lock on the state        
+        
+        if(canProcess && row >= 0){ 
+            printf("Processing row:%d, thread: %ld\n",row, myId);
+              
+            // for each cell in this row
+            for(int cell = 0; cell < state->current->width; cell++){
+                printf("[t: %ld] -> cell:%d\n", myId,cell);
+                // get the neighbor count
+                int neighbors = neighborCount(cell, row, state->current);
+                // and set the future state
+                int futureState = liveOrDie(neighbors,state->current->tiles[row][cell]);
+                state->next->tiles[row][cell] = futureState;
+            }
+        }
+    }
+    printf("Exiting thread %ld ...\n", myId);
+    pthread_exit(NULL);
+}
+
+
+Board* evolve(Board* board){
     // Build the 2d array
     Board* newBoard = allocateBoardTiles(board->height, board->width);
-    pthread_t threads[THREAD_COUNT];    
     
+    // wait until I can set up a new board
+    sem_wait(state->lock);
     
-    for(int row = 0; row < board->height ; ++row){
-        
-        // for(int column = 0; column < board->width; ++column){
-        //     int numberOfNeighbors = neighborCount(column,row,board);
-        //     // printf("neighbors: %d, ",numberOfNeighbors);
-        //     if(numberOfNeighbors < 2 || numberOfNeighbors > 3){
-        //         // Unable to live without neighbors, but not too many ;)
-        //         newBoard->tiles[row][column] = 0;
-        //     } else if (numberOfNeighbors == 3 && board->tiles[row][column] == 0){
-        //         // any dead cell with exactly 3 live neighbours becomes a live cell
-        //         newBoard->tiles[row][column] = 1;
-        //     } else {
-        //         // There is no change:
-        //         //   any live cell with 2 or 3 neighbours lives to next generation
-        //         //   or the cell stays dead
-        //         // printf(".");
-        //         newBoard->tiles[row][column] = board->tiles[row][column];
-        //     }
-        // }
-    }
+    state->current = board;
+    state->next = newBoard;
+    state->rowsProcessed = 0;
+    state->rowsRemainingToProcess = board->height;
+    state->totalRowCount = board->height;
+    sem_post(state->lock);
+    
+    printf("Waiting for evolution...\n");
+    // sleep(1);
+    sem_wait(state->evolutionDone);
+    printf(" evolution complete.\n");
+    
     releaseBoard(board);
     return newBoard;
 }
@@ -219,12 +251,13 @@ ScreenSize determineScreenSize(){
     return window;
 }
 
-// To catch the control c signal
-int execute;
-
 // Small function that is called when SIGINT is received
 void trap(int signal){ 
-    execute = 0; 
+    execute = 0;
+    // ask the threads to shut down
+    sem_wait(state->lock);
+    state->running = 0;
+    sem_post(state->lock);
 }
 
 int main (int argc, char const *argv[]){    
@@ -237,11 +270,47 @@ int main (int argc, char const *argv[]){
     ScreenSize size = determineScreenSize();
     
     // ncurses initialization
-    initscr();
+    // initscr();
         
     // Build the board
     Board* board = allocateBoardTiles(size.height,size.width);
     
+    // Initialize the thread controller
+    state = (ThreadControl*) malloc(sizeof(ThreadControl));
+    
+    // Initialize the lock
+    state->lock = sem_open("lock",O_CREAT);
+    state->evolutionDone = sem_open("done",O_CREAT);
+    
+    
+    int lockValue = 0;
+    int evolutionDoneValue = 0;
+    sem_getvalue(state->lock,&lockValue);
+    sem_getvalue(state->evolutionDone,&evolutionDoneValue);
+    
+    printf("lock: %d, done: %d\n",lockValue,evolutionDoneValue);
+    
+    // sem_init(state->lock, 0, 1);            // Initialized the semaphore unlocked...
+    // sem_init(state->evolutionDone, 0, 0);   // this is locked/blocked
+    
+    // Let them run, but there are no rows to process yet
+    // until evolve is called.
+    state->running = 1;
+    state->rowsRemainingToProcess = 0;
+    state->rowsProcessed = 0;
+    state->totalRowCount = 0;
+    
+    // Start up the thread pool
+    pthread_t threads[THREAD_COUNT]; 
+    int returnedValue;
+    for(long threadIndex = 0; threadIndex < (THREAD_COUNT); threadIndex++){
+        printf("Starting up thread %ld\n", threadIndex);
+        returnedValue = pthread_create(&threads[threadIndex], NULL, evolveRowWorker, (void *)threadIndex);
+        if (returnedValue){
+            printf("ERROR; return code from pthread_create() is %d\n", returnedValue);
+            exit(-1);
+        }
+    }
     
     // generate the board
     generateLifeOn(board, seed);
@@ -252,19 +321,17 @@ int main (int argc, char const *argv[]){
     // set up the signal listening
     signal(SIGINT, &trap);
     execute = 1;
+        
     
-    // Does this need to be initialized?
-    char fileNameBuffer[200];
-    
-    while(execute == 1){
+    // while(execute == 1){
         board = evolve(board);
 
-        printWithCurses(board);
+        // printWithCurses(board);
 
-        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
-        refresh();
-        usleep(1000*20);
-    }
+        // mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+        // refresh();
+        // usleep(1000*20);
+    // }
 
     // Now release the memory of the last board
     releaseBoard(board);
