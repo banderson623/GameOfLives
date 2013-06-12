@@ -5,8 +5,10 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
+#include <string.h>
 
-#define EGYPTIAN_COTTON 5
+#define EGYPTIAN_COTTON 10
 #define THREAD_COUNT EGYPTIAN_COTTON
 // That was cute.
 
@@ -27,6 +29,10 @@ typedef struct {
   int width;
 } ScreenSize;
 
+#define LOCK_NAME "_stateLock"
+#define EVOLUTION_DONE_NAME "_evolutionDone"
+#define DATA_AVAILABLE_NAME "_dataAvailable"
+
 // This holds
 typedef struct {
     Board* current;                 // pointer to the current board
@@ -34,11 +40,12 @@ typedef struct {
     short running;                  // 0 for stop request, 1 for running
     sem_t* lock;                    // semaphore for locking this structure
     sem_t* evolutionDone;           // Used to signal when an evolution is done
+    sem_t* dataAvailable;           // Locked until data is available
     int rowsRemainingToProcess;     // Number of rows (also their indices of 
                                     // the rows remaining to process).
-
     int rowsProcessed;              // Count of the rows processed
-    int totalRowCount;              // 
+    int totalRowCount;              // This is the total rows that should
+                                    // be Process in this evolution
 } ThreadControl;
 
 // -------- GLOBAL STATE -----------------------------------
@@ -71,9 +78,19 @@ int liveOrDie(int numberOfNeighbors, int currentState){
 // NOT THREAD SAFE
 int getNextRow(){
     int returnValue = -1;
+    
+    sem_wait(state->lock);          // Lock the state
     if(state->rowsRemainingToProcess >= 0){
         returnValue = state->rowsRemainingToProcess;
         state->rowsRemainingToProcess--;
+        // unlock
+        sem_post(state->lock);
+    } else {
+        // unlock, we'll be here a while
+        sem_post(state->lock);
+        printf("...waiting for more data\n");
+        sem_wait(state->dataAvailable);
+        printf(" done waiting\n");
     }
     return returnValue;
 }
@@ -81,6 +98,7 @@ int getNextRow(){
 void markRowDone(int row){
     sem_wait(state->lock);          // Lock the state
     state->rowsProcessed++;
+    // printf("Row done: %d\n",row);
     if(state->rowsProcessed >= state->totalRowCount){
         sem_post(state->evolutionDone);
     }
@@ -149,11 +167,12 @@ void generateLifeOn(Board* board, int seed) {
             // board->tiles[row][column] = 1;
         }
     }
+    printf("done generating life...\n");
 }
 
 int neighborCount(int column, int row, Board* board){
     int count = 0;
-    printf("Neighbor count row: %d, col: %d\n",row,column);
+    // printf("Neighbor count row: %d, col: %d\n",row,column);
     // Here we are going to deviate from how we did this in Ruby.
     // Because C's modulus operator is, arguably, mathematically more correct
     // see: http://stackoverflow.com/questions/7594508/modulo-operator-with-negative-values
@@ -192,24 +211,24 @@ void* evolveRowWorker(void* threadId){
     long myId = (long)threadId;
     
     while(state->running){
-        sem_wait(state->lock);          // Lock the state
-        int canProcess = state->current != NULL && state->next != NULL;
+        // blocks until data is available
         int row = getNextRow() - 1;
-        sem_post(state->lock);      // Release the lock on the state        
-        
-        if(canProcess && row >= 0){ 
-            printf("Processing row:%d, thread: %ld\n",row, myId);
+                
+        if(row >= 0){ 
+            // printf("Processing row:%d, thread: %ld\n",row, myId);
               
             // for each cell in this row
             for(int cell = 0; cell < state->current->width; cell++){
-                printf("[t: %ld] -> cell:%d\n", myId,cell);
+                // printf("[t: %ld] -> cell:%d\n", myId,cell);
                 // get the neighbor count
                 int neighbors = neighborCount(cell, row, state->current);
                 // and set the future state
                 int futureState = liveOrDie(neighbors,state->current->tiles[row][cell]);
                 state->next->tiles[row][cell] = futureState;
             }
+            markRowDone(row);
         }
+        printf(".");
     }
     printf("Exiting thread %ld ...\n", myId);
     pthread_exit(NULL);
@@ -221,19 +240,20 @@ Board* evolve(Board* board){
     Board* newBoard = allocateBoardTiles(board->height, board->width);
     
     // wait until I can set up a new board
+    printf("Evolution started\n");
     sem_wait(state->lock);
-    
     state->current = board;
     state->next = newBoard;
     state->rowsProcessed = 0;
     state->rowsRemainingToProcess = board->height;
     state->totalRowCount = board->height;
+    sem_post(state->dataAvailable);
     sem_post(state->lock);
     
+    
     printf("Waiting for evolution...\n");
-    // sleep(1);
     sem_wait(state->evolutionDone);
-    printf(" evolution complete.\n");
+    printf("...Evolution complete.\n");
     
     releaseBoard(board);
     return newBoard;
@@ -255,9 +275,7 @@ ScreenSize determineScreenSize(){
 void trap(int signal){ 
     execute = 0;
     // ask the threads to shut down
-    sem_wait(state->lock);
     state->running = 0;
-    sem_post(state->lock);
 }
 
 int main (int argc, char const *argv[]){    
@@ -268,7 +286,8 @@ int main (int argc, char const *argv[]){
     }
     
     ScreenSize size = determineScreenSize();
-    
+    size.width = size.height = 1000;
+        
     // ncurses initialization
     // initscr();
         
@@ -278,21 +297,15 @@ int main (int argc, char const *argv[]){
     // Initialize the thread controller
     state = (ThreadControl*) malloc(sizeof(ThreadControl));
     
-    // Initialize the lock
-    state->lock = sem_open("lock",O_CREAT);
-    state->evolutionDone = sem_open("done",O_CREAT);
+    // Initialize the lock, using named sempahores that error if created
+    sem_unlink(EVOLUTION_DONE_NAME);
+    sem_unlink(LOCK_NAME);
+    sem_unlink(DATA_AVAILABLE_NAME);
     
-    
-    int lockValue = 0;
-    int evolutionDoneValue = 0;
-    sem_getvalue(state->lock,&lockValue);
-    sem_getvalue(state->evolutionDone,&evolutionDoneValue);
-    
-    printf("lock: %d, done: %d\n",lockValue,evolutionDoneValue);
-    
-    // sem_init(state->lock, 0, 1);            // Initialized the semaphore unlocked...
-    // sem_init(state->evolutionDone, 0, 0);   // this is locked/blocked
-    
+    state->lock = sem_open(LOCK_NAME,O_CREAT | O_EXCL, 0600, 1);
+    state->dataAvailable = sem_open(DATA_AVAILABLE_NAME,O_CREAT | O_EXCL, 0600, 0);
+    state->evolutionDone = sem_open(EVOLUTION_DONE_NAME, O_CREAT | O_EXCL, 0600, 0);
+        
     // Let them run, but there are no rows to process yet
     // until evolve is called.
     state->running = 1;
@@ -336,10 +349,18 @@ int main (int argc, char const *argv[]){
     // Now release the memory of the last board
     releaseBoard(board);
     
+    // Clean up the semaphores that we used
+    sem_close(state->lock);
+    sem_close(state->evolutionDone);
+    sem_close(state->dataAvailable);
+    sem_unlink(DATA_AVAILABLE_NAME);
+    sem_unlink(EVOLUTION_DONE_NAME);
+    sem_unlink(LOCK_NAME);
+    
     signal(SIGINT, SIG_DFL);
     
     // Finally clean up after ncurses
     endwin();
-    
+    printf("bye...\n");
     return 0;
 }
