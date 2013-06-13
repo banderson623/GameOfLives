@@ -18,8 +18,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define TASK_END_ID -1
-
 // Nice way to keep the data together.
 typedef struct {
     int height;
@@ -35,7 +33,6 @@ typedef struct {
 
 // Used to queue a thread to process a row on the game
 typedef struct {
-    // int id;
     int rowIndex;
     short isDone;
     Board* current;
@@ -57,7 +54,12 @@ typedef struct {
 QueuePipes* queue;
 
 // To catch the control c signal
-int execute;
+int canExecute;
+
+// A collection of task structures
+// to use during the communication with the threads
+// This is a pointer to an array of QueuedTasks
+QueuedTask** taskCollection;
 // ---------------------------------------------------------
 
 // The rules of the game go here,
@@ -252,32 +254,24 @@ void evolve(Board* board, Board* newBoard){
     int tasksSent = 0;
     for(int row = 0; row < board->height; row++){
         // The task is created here...
-        //      ... now where do we free it?
-        QueuedTask* task = (QueuedTask*)malloc(sizeof(QueuedTask));
+        QueuedTask* task = taskCollection[row]; // = (QueuedTask*)malloc(sizeof(QueuedTask));
         task->rowIndex = row;
         task->isDone = 0;
         task->current = board;
         task->next = newBoard;
-        //        printf("address of task: 0x%x\n",task);
-        // +- address to allocated task
-        // v     v- the size of a pointer for this architecture
+        //                          +----------- address to allocated task
+        //                          v      v---- the size of a pointer for this architecture
         write(queue->taskPipe[1], &task, sizeof(QueuedTask*));
         tasksSent++;
-        
-        // usleep(1000*10);
     }
     
     
-    // Create memory
-    // ...of type pointer
+
     QueuedTask* response = 0;
-    
     while(tasksSent > 0){
         size_t bytesRead = read(queue->responsePipe[0],&response, sizeof(QueuedTask*));
         if(bytesRead == sizeof(QueuedTask*)){
-            // This will free the task that was created for this row.
-            //            printf("Cleaning up task: 0x%x\n",response);
-            free(response);
+            // free(response);
             tasksSent--;
         }
     }
@@ -298,28 +292,35 @@ ScreenSize determineScreenSize(){
 
 // Small function that is called when SIGINT is received
 void trap(int signal){
-    execute = 0;
+    canExecute = 0;
 }
+
 
 int main (int argc, char const *argv[]){
     
     int seed = 100;
+    // if you have an argument, it will be used as the seed
     if (argc > 1){
         seed = atoi(argv[1]);
     }
     
     ScreenSize size = determineScreenSize();
-    size.width = size.height = 5000;
+    // size.width = size.height = 5000;
     
-    // For another level of optimization
-    // create a collection of task structures now
-    // QueuedTask* tasks[size.height];
-    // for(int i = 0; i < size.height; i++){
-    //
-    // }
+    // Preallocate all the QueuedTask's, they will be recycled so that
+    // each evolution doesn't incure the cost of row-number of malloc()s and free()s
+    // ------------------------------------------------------------------------------
+    // Allocate enough space for a pointer for each task for each row
+    // ....so this is the size of a pointer, times the number of rows.
+    // *taskCollection = malloc(sizeof(QueuedTask*) * size.height);
+    taskCollection = malloc(sizeof(QueuedTask*) * size.height);
+    for(int i = 0; i < size.height; i++){
+        // Malloc each task in the queue
+        taskCollection[i] = (QueuedTask*) malloc(sizeof(QueuedTask));
+    }
     
     // ncurses initialization
-    // initscr();
+    initscr();
     
     // Build the board
     Board* board1 = allocateBoardTiles(size.height,size.width);
@@ -355,19 +356,31 @@ int main (int argc, char const *argv[]){
     // Counter for the generation
     int generation = 0;
     
-    // set up the signal listening
+    // set up the signal listening for control-c
     signal(SIGINT, &trap);
-    execute = 1;
     
+    // Start it off as able to run ;)
+    canExecute = 1;
+    
+    // Declare the timers
     struct timeval startClock;
     struct timeval endClock;
     
-    while(execute == 1){// && generation < 10){
-        
+    while(canExecute == 1) {
+        // Get time of the evolution start
         gettimeofday(&startClock,NULL);
+        
+        // Evolve will operate on the current generation
+        //      and overwrite nextGeneration with the results
         evolve(current,nextGeneration);
+
+        // Get time of the evolution end        
         gettimeofday(&endClock,NULL);
         
+        printWithCurses(nextGeneration);
+        
+        
+        // Swap current and next generation after each evolution
         if(current == board1){
             current = board2;
             nextGeneration = board1;
@@ -376,24 +389,29 @@ int main (int argc, char const *argv[]){
             nextGeneration = board2;
         }
         
+        // Timing calculations...
         double t0 = (double)startClock.tv_sec * 1000.0 * 1000.0 + (double)startClock.tv_usec;
         double t1 = (double)endClock.tv_sec * 1000.0 * 1000.0 + (double)endClock.tv_usec;
-        float timeDiff = (t1 - t0) / 1000000.0;
+        float timeDiff = (t1 - t0) / 1000;//000.0;
+        // printf("Generation: %d, evolution time: %2.2fs\n",generation++, timeDiff);
         
-        printf("Generation: %d, evolution time: %2.2fs\n",generation++, timeDiff);
         
-        //        printBoard(board);
-        // printWithCurses(board);
         
-        // mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
-        // refresh();
-        //        usleep(1000*20);
-        //        sleep(1);
+        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d, time:%2.f ms",size.height, size.width, seed, generation++, timeDiff);
+        refresh();
+        usleep(1000*20);
+        // sleep(1);
     }
     
-    // Now release the memory of the last board
+    // Now release the memory of the allocated boards
     releaseBoard(board1);
     releaseBoard(board2);
+
+    // Clean up all the tasks
+    for(int i = 0; i < size.height; i++){
+        free(taskCollection[i]);
+    }
+    free(taskCollection);
     
     
     signal(SIGINT, SIG_DFL);
