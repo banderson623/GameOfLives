@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <math.h>
 
-#define EGYPTIAN_COTTON 9
+#define EGYPTIAN_COTTON 10
 #define THREAD_COUNT EGYPTIAN_COTTON
 // That was cute.
 
@@ -42,12 +42,6 @@ typedef struct {
     Board* next;
 } QueuedTask;
 
-// // This is a response back to the control function
-// // that the queue task is complete
-// typedef struct {
-//     int id; // an id of the task complete
-//     // int status;
-// }  QueuedResponse;
 
 // Holds the two pipes used to communicate
 // between tasks and control
@@ -55,6 +49,7 @@ typedef struct {
     int taskPipe[2];
     int responsePipe[2];
 } QueuePipes;
+
 
 // -------- GLOBAL STATE -----------------------------------
 // Has to be global to share between all the threads
@@ -94,6 +89,17 @@ int releaseBoard(Board* board){
     board->width = 0;
     board->height = 0;
     return 0;
+}
+
+// Print the board
+void printBoard(Board* board){
+    for(int row = 0; row < board->height ; ++row){
+        // printf("|");
+        for(int column = 0; column < board->width; ++column){
+            printf("|%c",(board->tiles[row][column] == 1) ? '*' : ' ');
+        }
+        printf("|\n");
+    }
 }
 
 // Print with ncurses, lots of fun!
@@ -184,7 +190,8 @@ int neighborCount(int column, int row, Board* board){
 void* evolveRowWorker(void* threadId){
     long thisThreadId = (long)threadId;
     
-    QueuedTask* task = (QueuedTask*) malloc(sizeof(QueuedTask));
+    // Malloc this once, and use this as a space to hold the incoming task
+    QueuedTask* task = 0;
     
     // Simple way to keep things moving
     int running = 1;
@@ -193,84 +200,80 @@ void* evolveRowWorker(void* threadId){
     size_t bytesRead;
     
     while(running){
-//        printf("[%ld] Running\n",thisThreadId);
-        // reset bytes read
         bytesRead = 0;
-        // -- Block until something is in the pipe ---------------------------
-        // Read the task from the pipe and process it
-        while(bytesRead == 0){
-            bytesRead = read(queue->taskPipe[0], task, sizeof(*task));
-//            printf("[%ld] Bytes read: %ld, queued task size: %ld\n",thisThreadId, bytesRead, sizeof(QueuedTask));
-            if(bytesRead > 0){
-                row = task->rowIndex;
-            }
-        }
         
-        if(row >= 0){
-            // -- Process this Row's game of life rules -----------
-            for(int cell = 0; cell < task->current->width; cell++){
-                // get the neighbor count
-                int neighbors = neighborCount(cell, row, task->current);
-                // and set the future state
-                int futureState = liveOrDie(neighbors,task->current->tiles[row][cell]);
-                task->next->tiles[row][cell] = futureState;
+        // -- Block until something is in the pipe ---------------------------
+        bytesRead = read(queue->taskPipe[0], &task, sizeof(QueuedTask*));
+        if(bytesRead == sizeof(QueuedTask*)){
+            
+            row = task->rowIndex;
+        
+            if(row >= 0){
+                // -- Process this Row's game of life rules -----------
+                for(int cell = 0; cell < task->current->width; cell++){
+                    // get the neighbor count
+                    int neighbors = neighborCount(cell, row, task->current);
+                    // and set the future state
+                    int futureState = liveOrDie(neighbors,task->current->tiles[row][cell]);
+                    task->next->tiles[row][cell] = futureState;
+                }
+                
+                // -- Send a message back -----------------------------
+                // Now send a response that we have this row completed...
+                // QueuedResponse* response = (QueuedResponse*) malloc(sizeof(QueuedResponse));
+                // response->id = rowOperatingOn;
+                task->isDone = 1;
+//                printf("Responding to task: 0x%x\n",task);
+                write(queue->responsePipe[1], &task, sizeof(QueuedTask*));
+                
+            } else {
+                // -- End the thread was requested --------------------
+                running = 0;
             }
-            
-            // -- Send a message back -----------------------------
-            // Now send a response that we have this row completed...
-            // QueuedResponse* response = (QueuedResponse*) malloc(sizeof(QueuedResponse));
-            // response->id = rowOperatingOn;
-            task->isDone = 1;
-            write(queue->responsePipe[1], task, sizeof(*task));
-            
         } else {
-            // -- End the thread was requested --------------------
-            running = 0;
+            printf("wrong size read: %zd\n",bytesRead);
         }
     }
-    free(task);
     printf("Exiting thread %ld ...\n", thisThreadId);
     pthread_exit(NULL);
 }
 
 
-Board* evolve(Board* board){
-    // Build the 2d array
-    Board* newBoard = allocateBoardTiles(board->height, board->width);
-    
-    
+void evolve(Board* board, Board* newBoard){
     
     int tasksSent = 0;
     for(int row = 0; row < board->height; row++){
+        // The task is created here...
+        //      ... now where do we free it?
         QueuedTask* task = (QueuedTask*)malloc(sizeof(QueuedTask));
         task->rowIndex = row;
         task->isDone = 0;
         task->current = board;
         task->next = newBoard;
-        
-        size_t bytesWritten = write(queue->taskPipe[1], task, sizeof(*task));
-//        printf("Sent task for row: %d in %ld bytes\n",task->rowIndex,bytesWritten);
+//        printf("address of task: 0x%x\n",task);
+                                // +- address to allocated task
+                                // v     v- the size of a pointer for this architecture
+        write(queue->taskPipe[1], &task, sizeof(QueuedTask*));
         tasksSent++;
         
         // usleep(1000*10);
     }
     
     
-    QueuedTask* response = (QueuedTask*) malloc(sizeof(QueuedTask));
+    // Create memory
+    // ...of type pointer
+    QueuedTask* response = 0;
     
     while(tasksSent > 0){
-        size_t bytesRead = read(queue->responsePipe[0],response, sizeof(*response));
-        if(bytesRead > 0){
-//            printf("Response from row: %d is done: %d, bytes read: %ld\n",response->rowIndex,response->isDone,bytesRead);
+        size_t bytesRead = read(queue->responsePipe[0],&response, sizeof(QueuedTask*));
+        if(bytesRead == sizeof(QueuedTask*)){
+            // This will free the task that was created for this row.
+//            printf("Cleaning up task: 0x%x\n",response);
+            free(response);
             tasksSent--;
-            // now we can free this response
         }
     }
-    free(response);
 
-    
-    releaseBoard(board);
-    return newBoard;
 }
 
 // Used to get the screen size
@@ -300,17 +303,26 @@ int main (int argc, char const *argv[]){
     ScreenSize size = determineScreenSize();
     size.width = size.height = 5000;
     
+//    size.width = 2;
+//    size.height = 2;
+
     // ncurses initialization
     // initscr();
     
     // Build the board
-    Board* board = allocateBoardTiles(size.height,size.width);
+    Board* board1 = allocateBoardTiles(size.height,size.width);
+    Board* board2 = allocateBoardTiles(size.height,size.width);
+    
+    Board* current = board1;
+    Board* nextGeneration = board2;
     
     // Initialize the main queue
     queue = (QueuePipes*) malloc(sizeof(QueuePipes));
     
     // Now initialize the pipes
     pipe(queue->taskPipe);
+    
+    
     pipe(queue->responsePipe);
     
     
@@ -328,7 +340,7 @@ int main (int argc, char const *argv[]){
     }
     
     // generate the board
-    generateLifeOn(board, seed);
+    generateLifeOn(current, seed);
     
     // Counter for the generation
     int generation = 0;
@@ -336,29 +348,41 @@ int main (int argc, char const *argv[]){
     // set up the signal listening
     signal(SIGINT, &trap);
     execute = 1;
-
+    
     struct timeval startClock;
     struct timeval endClock;
     
-    while(execute == 1 && generation < 10){
+    while(execute == 1){// && generation < 10){
         
         gettimeofday(&startClock,NULL);
-        board = evolve(board);
+        evolve(current,nextGeneration);
         gettimeofday(&endClock,NULL);
+        
+        if(current == board1){
+            current = board2;
+            nextGeneration = board1;
+        } else {
+            current = board1;
+            nextGeneration = board2;
+        }
         
         float diff = ((float)endClock.tv_usec - (float)startClock.tv_usec) / 1000000.0;
         
         printf("Generation: %d, evolution time: %2.2fs\n",generation++, fabs(diff));
-    // printWithCurses(board);
-    
-    // mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
-    // refresh();
+        
+//        printBoard(board);
+        // printWithCurses(board);
+        
+        // mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+        // refresh();
 //        usleep(1000*20);
-//        sleep(2);
+//        sleep(1);
     }
     
     // Now release the memory of the last board
-    releaseBoard(board);
+    releaseBoard(board1);
+    releaseBoard(board2);
+    
     
     signal(SIGINT, SIG_DFL);
     
