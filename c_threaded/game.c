@@ -379,7 +379,6 @@ int main (int argc, char const *argv[]){
         
         printWithCurses(nextGeneration);
         
-        
         // Swap current and next generation after each evolution
         if(current == board1){
             current = board2;

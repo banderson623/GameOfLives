@@ -32,7 +32,7 @@ The worker threads themselves are pretty basic. They take a row index of the cur
 
 ## Optimizations
 
-**Mallocs** - Each evolution I was calling `malloc()` and a `free()` on the next board generation. Thanks to Hristo I removed the malloc from the evolve function. Now at startup, two boards are created. During evolve, one becomes the current generation and the other the next generation.
+**Mallocs** - Each evolution I was calling `malloc()` and a `free()` on the next board generation. You can [read a question on stack overflow that investigates the cost of malloc()](http://stackoverflow.com/questions/7612292/how-bad-it-is-to-keep-calling-malloc-and-free) Thanks to Hristo I removed the malloc from the evolve function. Now at startup, two boards are created. During evolve, one becomes the current generation and the other the next generation.
 
     [ Board 1 ] -> malloc()'d space
     [ Board 2 ] -> malloc()'d space
