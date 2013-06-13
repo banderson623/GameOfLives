@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <unistd.h>
-#include "bmp.h"
+// #include "bmp.h"
+// for timing
+#include <sys/time.h>
+#include <math.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -189,7 +192,7 @@ int main (int argc, char const *argv[]){
     
     ScreenSize size = determineScreenSize();
     // hack
-    // size.height = size.width = 500;
+    size.height = size.width = 5000;
     
     // ncurses initialization
     initscr();
@@ -209,10 +212,19 @@ int main (int argc, char const *argv[]){
     execute = 1;
     
     // Does this need to be initialized?
-    char fileNameBuffer[200];
+    // char fileNameBuffer[200];
     
-    while(execute == 1){
+    struct timeval startClock;
+    struct timeval endClock;
+    
+    
+    while(execute == 1 && generation < 10){
+        gettimeofday(&startClock,NULL);
         board = evolve(board);
+        gettimeofday(&endClock,NULL);
+    
+        
+    
         // sprintf(fileNameBuffer, "images/generations_%03d.bmp",generation);
         // saveGameStateToFile(board->tiles, size.height, size.width, fileNameBuffer);
         // printBoard(board);
@@ -221,10 +233,10 @@ int main (int argc, char const *argv[]){
         // if(generation % 100 == 0){
         //     printf("Generation: %d\n", generation);
         // }
-        printWithCurses(board);
-        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
+        // printWithCurses(board);
+        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %5d",size.height, size.width, seed, generation++);
         refresh();
-        usleep(1000*20);
+        // usleep(1000*20);
         // sleep(1);
     }
 

@@ -26,15 +26,12 @@ QueueControl* queue;
 
 void* worker(void* threadId){
     long thisThreadID = (long)threadId;
-    
-//    printf("Started %ld\n",thisThreadID);
+
     int running = 1;
     while(running){
-//        printf(".");
-//        printf("[Thread %2ld] - waiting for input...\n",thisThreadID);
         int rowNumber;
         size_t nbytes = read(queue->pipeFileDescriptor[0], &rowNumber, sizeof(rowNumber));
-//        printf("[Thread %2ld] - Read %d (read was %ld long)\n",thisThreadID,rowNumber,nbytes);
+
         if(nbytes > 0){
             if(rowNumber == -1){
                 running = 0;
