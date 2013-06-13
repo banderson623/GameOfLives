@@ -4,7 +4,7 @@ CC=cc
 all: game
 
 game: game.c
-	$(CC) game.c -lncurses -lpthread -o $(BINARY)
+	$(CC) game.c -lncurses -lpthread -O2 -o $(BINARY)
 
 pipe: pipe_example.c
 	$(CC) pipe_example.c -lpthread -o pipe

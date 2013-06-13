@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <math.h>
 
-#define EGYPTIAN_COTTON 10
+#define EGYPTIAN_COTTON 4
 #define THREAD_COUNT EGYPTIAN_COTTON
 // That was cute.
 
@@ -172,12 +172,20 @@ int neighborCount(int column, int row, Board* board){
     //
     //     example: (3 + 0 +(-1)) % 3 = 2
     
+    
+    int h,w;
+    h = board->height;
+    w = board->width;
+    int** tiles = board->tiles;
+    
     for(int row_offset = -1; row_offset <= 1; row_offset++){
-        
+        int rowOffsetIndex = ((h + row + row_offset) % h);
+
         for(int column_offset = -1; column_offset <= 1; column_offset++){
             if (!(row_offset == 0 && column_offset == 0)){
-                count+= board->tiles[((board->height + row + row_offset) % board->height)]
-                [((board->width + column + column_offset) % board->width)];
+//                count+= board->tiles[((board->height + row + row_offset) % board->height)]
+//                [((board->width + column + column_offset) % board->width)];
+                count+= tiles[rowOffsetIndex][((w + column + column_offset) % w)];
             }
         }
     }
@@ -207,7 +215,7 @@ void* evolveRowWorker(void* threadId){
         if(bytesRead == sizeof(QueuedTask*)){
             
             row = task->rowIndex;
-        
+            
             if(row >= 0){
                 // -- Process this Row's game of life rules -----------
                 for(int cell = 0; cell < task->current->width; cell++){
@@ -223,7 +231,7 @@ void* evolveRowWorker(void* threadId){
                 // QueuedResponse* response = (QueuedResponse*) malloc(sizeof(QueuedResponse));
                 // response->id = rowOperatingOn;
                 task->isDone = 1;
-//                printf("Responding to task: 0x%x\n",task);
+                //                printf("Responding to task: 0x%x\n",task);
                 write(queue->responsePipe[1], &task, sizeof(QueuedTask*));
                 
             } else {
@@ -250,9 +258,9 @@ void evolve(Board* board, Board* newBoard){
         task->isDone = 0;
         task->current = board;
         task->next = newBoard;
-//        printf("address of task: 0x%x\n",task);
-                                // +- address to allocated task
-                                // v     v- the size of a pointer for this architecture
+        //        printf("address of task: 0x%x\n",task);
+        // +- address to allocated task
+        // v     v- the size of a pointer for this architecture
         write(queue->taskPipe[1], &task, sizeof(QueuedTask*));
         tasksSent++;
         
@@ -268,12 +276,12 @@ void evolve(Board* board, Board* newBoard){
         size_t bytesRead = read(queue->responsePipe[0],&response, sizeof(QueuedTask*));
         if(bytesRead == sizeof(QueuedTask*)){
             // This will free the task that was created for this row.
-//            printf("Cleaning up task: 0x%x\n",response);
+            //            printf("Cleaning up task: 0x%x\n",response);
             free(response);
             tasksSent--;
         }
     }
-
+    
 }
 
 // Used to get the screen size
@@ -303,9 +311,13 @@ int main (int argc, char const *argv[]){
     ScreenSize size = determineScreenSize();
     size.width = size.height = 5000;
     
-//    size.width = 2;
-//    size.height = 2;
-
+    // For another level of optimization
+    // create a collection of task structures now
+    // QueuedTask* tasks[size.height];
+    // for(int i = 0; i < size.height; i++){
+    //
+    // }
+    
     // ncurses initialization
     // initscr();
     
@@ -321,8 +333,6 @@ int main (int argc, char const *argv[]){
     
     // Now initialize the pipes
     pipe(queue->taskPipe);
-    
-    
     pipe(queue->responsePipe);
     
     
@@ -366,17 +376,19 @@ int main (int argc, char const *argv[]){
             nextGeneration = board2;
         }
         
-        float diff = ((float)endClock.tv_usec - (float)startClock.tv_usec) / 1000000.0;
+        double t0 = (double)startClock.tv_sec * 1000.0 * 1000.0 + (double)startClock.tv_usec;
+        double t1 = (double)endClock.tv_sec * 1000.0 * 1000.0 + (double)endClock.tv_usec;
+        float timeDiff = (t1 - t0) / 1000000.0;
         
-        printf("Generation: %d, evolution time: %2.2fs\n",generation++, fabs(diff));
+        printf("Generation: %d, evolution time: %2.2fs\n",generation++, timeDiff);
         
-//        printBoard(board);
+        //        printBoard(board);
         // printWithCurses(board);
         
         // mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %d",size.height, size.width, seed, generation++);
         // refresh();
-//        usleep(1000*20);
-//        sleep(1);
+        //        usleep(1000*20);
+        //        sleep(1);
     }
     
     // Now release the memory of the last board
