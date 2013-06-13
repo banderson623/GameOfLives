@@ -192,7 +192,7 @@ int main (int argc, char const *argv[]){
     
     ScreenSize size = determineScreenSize();
     // hack
-    size.height = size.width = 5000;
+    // size.height = size.width = 5000;
     
     // ncurses initialization
     initscr();
@@ -218,7 +218,7 @@ int main (int argc, char const *argv[]){
     struct timeval endClock;
     
     
-    while(execute == 1 && generation < 10){
+    while(execute == 1){
         gettimeofday(&startClock,NULL);
         board = evolve(board);
         gettimeofday(&endClock,NULL);
@@ -233,10 +233,10 @@ int main (int argc, char const *argv[]){
         // if(generation % 100 == 0){
         //     printf("Generation: %d\n", generation);
         // }
-        // printWithCurses(board);
+        printWithCurses(board);
         mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %5d",size.height, size.width, seed, generation++);
         refresh();
-        // usleep(1000*20);
+        usleep(1000*20);
         // sleep(1);
     }
 

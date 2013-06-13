@@ -4,7 +4,7 @@ CC=cc
 all: game
 
 game: bmp.o game.c
-	$(CC) bmp.o game.c -lncurses -o $(BINARY)
+	$(CC) bmp.o game.c -lncurses -O2 -o $(BINARY)
 
 bmp.o: bmp.c
 	$(CC) -c -Wall bmp.c
