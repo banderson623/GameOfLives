@@ -11,7 +11,7 @@ By carefully selecting how to parallelize the problem, we can avoid extra lockin
 
 At first I thought I would just build a bunch of threads each evolution step, have them do their work and then clean them up before starting the next evolution. This would be a lot of thread maintenance. Instead I decided to create n-number of worker-threads, and create a pool of threads.
 
-Then, use a posix pipe to "feed" the worker threads. Since read() are blocking, n-number of worker threads could block on the pipe, using it as a queue to send data down to the work threads.
+Then, use a posix pipe to "feed" the worker threads. Since `read()` and `write()` is blocking, n-number of worker threads could block on the pipe, using it as a queue to send data down to the work threads.
 
     typedef struct {
         int id;
@@ -21,9 +21,7 @@ Then, use a posix pipe to "feed" the worker threads. Since read() are blocking, 
         Board* next;
     }  Task;
 
-
-Each work request is a struct that contains some basic information row number, current board state, and future board state.
-
+Each work request is a `struct` that contains some basic information row number, current board state, and future board state.
 Of course I need another pipe, in the reverse direction, to send the response back to the control-thread (main) to let it know the work is done.
 
 ## Workers
