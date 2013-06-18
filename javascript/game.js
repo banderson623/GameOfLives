@@ -14,12 +14,13 @@ var Game = {
         new_board.height = height;
         new_board.width = width;
         var tiles = [];
-        var a_row = [];
         // todo, find out how to seed this
         for(var row = 0; row < height; row++){
+            var a_row = [];
             for(var column = 0; column < width; column++){
                 // 1 is life exists, 0 no life on the cell
                 a_row[column] = Math.ceil(Math.random()*10) % 2
+                console.log[a_row];
             }
             tiles[row] = a_row;
         }
@@ -99,23 +100,36 @@ Game.DOM = {
         return "cell_" + row + "x" + column;
     },
     
-    build_board_in_element_identified_by_id: function(element_id, game){
+    update_board_to_match:function (game){
+        
+    },
+    
+    build_board_in_element_identified_by_id: function(game,element_id){
         // this.container_element_name = element_id;
         this.container_element = document.getElementById(element_id);
         if(this.container_element !== null && this.current !== null){
-            var bigTextBlob = "<table id='GameTable'>";
-            //.. do something
-            console.log(this);
+
+            // Using createElement for the first time
+            var table = document.createElement("table");
+            table.id = "GameTable";
+            
             for(row = 0; row < game.current.height; row++){
-                bigTextBlob += "<tr id='row_'" + row + ">";
+                var tr = document.createElement("tr");
+                tr.id = "row_" + row;
                 for(column = 0; column < game.current.width; column++){
-                    bigTextBlob += "<td id=\"" + this.dom_id_for_element(row,column) + "\" class=\"life_"+game.current.tiles[row][column]+"\"></td>";
+                    var td = document.createElement("td");
+                    td.id = this.dom_id_for_element(row,column);
+                    // class is either life_0 or life_1;
+                    td.className = "life_" + game.current.tiles[row][column];
+                    var content = document.createTextNode(game.current.tiles[row][column]);
+                    td.appendChild(content);
+                    tr.appendChild(td);
                 }
-                bigTextBlob += "</tr>";    
+                table.appendChild(tr);
             }
-            bigTextBlob += "</table>";
         }
-        console.log("Inserting: ", bigTextBlob);
-        Game.DOM.container_element.innerHTML = bigTextBlob;
+        // console.log("Inserting: ", bigTextBlob);
+        // Game.DOM.container_element.innerHTML = bigTextBlob;
+        Game.DOM.container_element.appendChild(table);
     }   
 }
