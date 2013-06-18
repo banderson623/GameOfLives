@@ -3,6 +3,9 @@
 
 
 var Game = {
+    // namespaced.
+    Board: {},
+    DOM: {},
     current: null,
     
     // Generates the board
@@ -26,24 +29,27 @@ var Game = {
     },
     
     // set things up
-    setup: function(){
-        this.current = this.generate(10,10);
-    }
+    setup: function(height,width){
+        this.current = this.generate(height,width);
+    },
     
     
     step: function(){
         this.current = this.current.evolve();
     }
     
-    Board: {}
 }
+Game.new = function (height,width) {
+    console.log("new was called on game");
+    g = Game.clone()
+};
 
 Game.Board = {
     // tiles height, integer
     height: 1,
     // tile width, integer
     width: 1,
-    tiles: [] // ends up being a 2d array.
+    tiles: [], // ends up being a 2d array.
     
     // returns a new instance of board
     evolve: function(){
@@ -60,8 +66,8 @@ Game.Board = {
                     // Unable to live without neighbors, but not too many ;)
                     new_board.tiles[row][column] = 0;
         
-                } else if (numberOfNeighbors == 3 && currentState == 0){
-                    // any dead cell with exactly 3 live neighbours becomes a live cell
+                } else if (numberOfNeighbors == 3 && current_state == 0){
+                    // any dead cell with exactly 3 live neighbors becomes a live cell
                     new_board.tiles[row][column] = 1;
                 }               
             }
@@ -70,7 +76,7 @@ Game.Board = {
     },
     
     get_neighbor_count: function(row, column){
-        int neighbors = 0;
+        var neighbors = 0;
         // subtract 1 if this is alive
         neighbors -= this.tiles[row][column];
         
@@ -81,4 +87,33 @@ Game.Board = {
         }
         return neighbors;
     }
+}
+
+
+
+Game.DOM = {
+    container_element_name: "",
+    container_element: null,
+    
+    dom_id_for_element: function(row,column){
+        return "cell_" + row + "x" + column;
+    },
+    
+    build_board_in_element_identified_by_id: function(element_id){
+        // this.container_element_name = element_id;
+        this.container_element = document.getElementById(element_id);
+        if(this.container_element !== null && this.current !== null){
+            var bigTextBlob = "<table id='GameTable'>";
+            //.. do something
+            for(row = 0; row < this.current.height; row++){
+                bigTextBlob += "<tr id='row_'" + row + ">";
+                for(column = 0; column < this.current.width; column++){
+                    bigTextBlob += "<td id=\"" + this.dom_id_for_element(row,column) + "\" class=\"life_"+this.current.tiles[row][column]+"\"></td>";
+                }
+                bigTextBlob += "</tr>";    
+            }
+            bigTextBlob += "</table>";
+        }
+        Game.DOM.container_element.innerHTML = bigTextBlob;
+    }   
 }
