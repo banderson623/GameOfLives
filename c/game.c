@@ -218,13 +218,15 @@ int main (int argc, char const *argv[]){
     struct timeval endClock;
     
     
-    while(execute == 1 && generation < 10){
+    while(execute == 1){
         gettimeofday(&startClock,NULL);
         board = evolve(board);
         gettimeofday(&endClock,NULL);
     
+        double t0 = (double)startClock.tv_sec * 1000.0 * 1000.0 + (double)startClock.tv_usec;
+        double t1 = (double)endClock.tv_sec * 1000.0 * 1000.0 + (double)endClock.tv_usec;
+        float timeDiff = (t1 - t0) / 1000000.0;
         
-    
         // sprintf(fileNameBuffer, "images/generations_%03d.bmp",generation);
         // saveGameStateToFile(board->tiles, size.height, size.width, fileNameBuffer);
         // printBoard(board);
@@ -234,9 +236,9 @@ int main (int argc, char const *argv[]){
         //     printf("Generation: %d\n", generation);
         // }
         // printWithCurses(board);
-        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %5d",size.height, size.width, seed, generation++);
+        mvprintw(0, 0, "Window: [%dx%d] - Seed: %d - Generation: %5d Time: %2.4fs",size.height, size.width, seed, generation++, timeDiff);
         refresh();
-        // usleep(1000*20);
+        usleep(1000*20);
         // sleep(1);
     }
 
