@@ -99,21 +99,23 @@ Game.DOM = {
         return "cell_" + row + "x" + column;
     },
     
-    build_board_in_element_identified_by_id: function(element_id){
+    build_board_in_element_identified_by_id: function(element_id, game){
         // this.container_element_name = element_id;
         this.container_element = document.getElementById(element_id);
         if(this.container_element !== null && this.current !== null){
             var bigTextBlob = "<table id='GameTable'>";
             //.. do something
-            for(row = 0; row < this.current.height; row++){
+            console.log(this);
+            for(row = 0; row < game.current.height; row++){
                 bigTextBlob += "<tr id='row_'" + row + ">";
-                for(column = 0; column < this.current.width; column++){
-                    bigTextBlob += "<td id=\"" + this.dom_id_for_element(row,column) + "\" class=\"life_"+this.current.tiles[row][column]+"\"></td>";
+                for(column = 0; column < game.current.width; column++){
+                    bigTextBlob += "<td id=\"" + this.dom_id_for_element(row,column) + "\" class=\"life_"+game.current.tiles[row][column]+"\"></td>";
                 }
                 bigTextBlob += "</tr>";    
             }
             bigTextBlob += "</table>";
         }
+        console.log("Inserting: ", bigTextBlob);
         Game.DOM.container_element.innerHTML = bigTextBlob;
     }   
 }
